@@ -1,5 +1,5 @@
-//Contains code to preprocess data, and does not need to be included on the rocket's flight computer
-//The flight computer only needs the output angleTable.dat file
+//Contains code to preprocess data; this file does not need to be included on the rocket's flight computer
+//The flight computer will only need the output angleTable.dat file, with angleTable.c and angleTable.h
 
 /*input csv should be structured
 
@@ -8,7 +8,7 @@
     a2,DC,DC,DC,DC,DC
     a3,DC,DC,DC,DC,DC
 
-    where v is velocity at consistent increments & sorted least to greatest, a is angle, and DC is drag coefficient at corresponding velocity and angle
+    where v is velocity at consistent increments & sorted least to greatest, a is angle, and DC is drag coefficient at that corresponding velocity and angle
     the first v has a leading comma beause it's a csv
 */
 
@@ -38,12 +38,12 @@ void generateDemoData(int vSize, int aSize) {
     }
     for (int i = 0; i < aSize; i++) {
         fprintf(newFile, "%f,", currentAngle);
-        currentAngle += angleStep;
         for (int j = 0; j < vSize; j++) {
             if (i == aSize - 1 && j == vSize - 1)
                  fprintf(newFile, "%f", currentAngle * (velocityStart + velocityStep * j) / 100.0f);
             else fprintf(newFile, "%f%c", currentAngle * (velocityStart + velocityStep * j) / 100.0f, j != vSize - 1 ? ',' : '\n');
         }
+        currentAngle += angleStep;
     }
     fclose(newFile);
 }
@@ -75,6 +75,10 @@ void preprocessCSV(char* filename_csv) { //include ".csv" when passing the filen
     strcat(strippedFilename, "_temp.csv\0");
     int gottenChar;
     FILE *originalCSV = fopen(filename_csv, "r");
+    if (originalCSV == NULL) {
+        fprintf(stderr, "ERROR: Failed opening csv file, is the filename correct? (including .csv at the end)\n");
+        return;
+    }
     
     FILE *strippedCSV = fopen(strippedFilename, "w");
     while ((gottenChar = fgetc(originalCSV)) != EOF) {
@@ -144,7 +148,7 @@ void preprocessCSV(char* filename_csv) { //include ".csv" when passing the filen
     //=========== PART 4 ===========
     float angleMin = -1.0f, angleMax = -1.0f;
     
-    //dynamically allocate this: float drags[anglesFound][velocitiesFound]
+    //dynamically allocate this:    float drags[anglesFound][velocitiesFound]
     float **drags = malloc(anglesFound * sizeof(float*));
     for (int a = 0; a < anglesFound; a++) drags[a] = malloc(velocitiesFound * sizeof(float));
 
@@ -175,8 +179,8 @@ void preprocessCSV(char* filename_csv) { //include ".csv" when passing the filen
 
     for (int v = 0; v < velocitiesFound; v++) {// for each collumn
         struct dragNode* currentNode = &nodes[v];
-        currentNode->dragValues = malloc(anglesFound * sizeof(uint16_t));
-        currentNode->angleValues = malloc(anglesFound * sizeof(uint8_t));
+        currentNode->dragValues = malloc(anglesFound * sizeof(drag_t));
+        currentNode->angleValues = malloc(anglesFound * sizeof(angle_t));
         float currentBaseAngleArray[anglesFound];
         for (int a = 0; a < anglesFound; a++) currentBaseAngleArray[a] = baseAngleArray[a];
 
@@ -224,8 +228,9 @@ void preprocessCSV(char* filename_csv) { //include ".csv" when passing the filen
                 if (difference > maxDifference) maxDifference = difference;
             }
 
-            //also convert angles to 8-bit int mappings from angleMin to angleMax
-            currentNode->angleValues[a] = (angle_t) ((currentBaseAngleArray[a] - angleMin) / (angleMax - angleMin) * 255.0 + 0.5f);
+            //also convert angles to 16-bit int mappings from angleMin by angleStep
+            float angleStep = (angleMax - angleMin) / (anglesFound - 1);
+            currentNode->angleValues[a] = (angle_t) ((currentBaseAngleArray[a] - angleMin) / angleStep);
         }
         currentNode->halfMaxDiff = maxDifference % 2 == 1 ? maxDifference / 2 + 1 : maxDifference / 2; //half max difference, rounded up
     }
@@ -237,35 +242,38 @@ void preprocessCSV(char* filename_csv) { //include ".csv" when passing the filen
     /*data file structure
     4 bytes – velocityCount (uint32)
     4 bytes – angleCount (uint32)
-    4 bytes – min angle * 1000000 (uint32)
-    4 bytes – max angle * 1000000 (uint32)
     4 bytes – minimum velocity * 1000000 (uint32)
     4 bytes – velocity step * 1000000 (uint32)
+    4 bytes – minimum angle * 1000000 (uint32)
+    4 bytes – angle step * 1000000 (uint32)
         the rest of the file:
         repeating velocityCount amount of repeating nodes containing
             4 bytes – minDrag * 100000000 (uint32)
             4 bytes – maxDrag * 100000000 (uint32)
             2 bytes – halfMaxDiff * 100000000 (uint16)
             drag values every first 2 bytes, sorted least to greatest (uint16, mapped)
-            angle values corresponding to the preceding drag value every second 2 bytes (uint16, mapped)
+            angle values corresponding to the preceding drag value every second 2 bytes (uint16, indexed)
             restarting node structure after angleCount amount of pairs
 
         mapped means the value maps from some minimum to some maximum, EX: a mapped uint8_t with value 127, between min 10 and max 20, would map to 15
+        indexed means that you get the value by multiplying by the step and adding the min, EX: minAngle = 5, angleStep = 0.5, a value of 6 would index to 8 (6 * 0.5 + 5)
     */
     FILE *tableFile = fopen("angleTable.dat", "wb");
     uint32_t velocityCount = velocitiesFound;
     uint32_t angleCount = anglesFound;
-    uint32_t minAngle = angleMin * 1000000UL;
-    uint32_t maxAngle = angleMax * 1000000UL;
     uint32_t minimumVelocity = vMin * 1000000UL;
     uint32_t velocityStep = (v2 - v1) * 1000000UL;
+    uint32_t minAngle = angleMin * 1000000UL;
+    uint32_t angleStep = (angleMax - angleMin) / (angleCount - 1) * 1000000UL;
+
 
     fwrite(&velocitiesFound, 4, 1, tableFile);
     fwrite(&angleCount, 4, 1, tableFile);
-    fwrite(&minAngle, 4, 1, tableFile);
-    fwrite(&maxAngle, 4, 1, tableFile);
     fwrite(&minimumVelocity, 4, 1, tableFile);
     fwrite(&velocityStep, 4, 1, tableFile);
+    fwrite(&minAngle, 4, 1, tableFile);
+    fwrite(&angleStep, 4, 1, tableFile);
+
 
     for (int v = 0; v < velocitiesFound; v++) {
 
@@ -275,6 +283,8 @@ void preprocessCSV(char* filename_csv) { //include ".csv" when passing the filen
         
         for (int a = 0; a < angleCount; a++) {
             fwrite(&nodes[v].dragValues[a], 2, 1, tableFile);
+        }
+        for (int a = 0; a < angleCount; a++) {
             fwrite(&nodes[v].angleValues[a], 2, 1, tableFile);
         }
     }
@@ -292,4 +302,21 @@ void preprocessCSV(char* filename_csv) { //include ".csv" when passing the filen
     }
 
     printf("Done, angleTable.dat file successfully generated!\n");
+    int memoryUsage = getMemoryUsage("angleTable.dat");
+    printf("This data file will take up roughly %i bytes of memory when loaded%s", memoryUsage, memoryUsage >= 32000 ? ", make sure your ESP has more than that.\n" : ".\n");
+}
+
+//returns the approximate number of bytes of memory the angle table will take up on the flight computer
+int getMemoryUsage(char* dataFileName) {
+    FILE* dataFile = fopen("angleTable.dat", "rb");
+    if (!dataFile) {
+        fprintf(stderr, "Data file \"%s\" could not be read.\n", dataFileName);
+        return -1;
+    }
+    uint32_t velocityCount = 0;
+    uint32_t angleCount = 0;
+    fread(&velocityCount, 4, 1, dataFile);
+    fread(&angleCount, 4, 1, dataFile);
+    fclose(dataFile);
+    return velocityCount * angleCount * 4 + velocityCount * 18 + 1;
 }
