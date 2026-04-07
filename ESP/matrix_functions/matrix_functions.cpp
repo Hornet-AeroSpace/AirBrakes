@@ -1,6 +1,8 @@
 #include <stdlib.h>
 #include <math.h>
 #include "matrix_functions.h"
+#include <HardwareSerial.h>
+
 
 matrix m_new(int cols, int rows)
 {
@@ -188,4 +190,19 @@ matrix m_inv(matrix m, garbage_truck* garbage_man)
 	matrix out;
 	
 	return out;
+}
+
+void m_display(matrix m)
+{
+  for(int i = 0; i < m.rows; i++)
+  {
+    for(int j = 0; j < m.cols; j++)
+    {
+      if(m.elems[i * m.cols + j] > 0)
+        Serial.print(" ");
+      Serial.print(m.elems[i * m.cols + j], 6);
+    }
+    Serial.print("\n");
+  }
+  Serial.print("\n");
 }

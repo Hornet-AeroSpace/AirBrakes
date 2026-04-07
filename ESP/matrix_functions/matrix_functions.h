@@ -1,6 +1,9 @@
 #ifndef MATRIX_FUNCTIONS_H
 #define MATRIX_FUNCTIONS_H
 
+#include <HardwareSerial.h>
+
+
 typedef struct
 {
 	float* elems;
@@ -40,5 +43,7 @@ matrix m_inv_2x2(matrix m, garbage_truck* garbage_man);
 matrix m_inv_3x3(matrix m, garbage_truck* garbage_man);
 
 matrix m_inv(matrix m, garbage_truck* garbage_man);
+
+void m_display(matrix m);
 
 #endif //MATRIX_FUNCTIONS_H
