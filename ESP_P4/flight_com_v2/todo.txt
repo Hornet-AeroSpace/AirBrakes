@@ -1,0 +1,20 @@
+BMP 390 SPI library
+ADXL 375 SPI library
+I-Syst ICM 45686 + AKM AK09940A library
+GPS Module SPI library
+
+Wireless control of flight computer through C6
+    access c6 through the UART header
+        3.3V USB-to-UART adapter to the C6_TX, C6_RX, and GND pads
+        pull C6_IO9 to ground to enter download mode
+    Back up stock firmware
+        esptool.py --chip esp32c6 --port <COM PORT> --baud 460800 read_flash 0 ALL factory_backup.bin
+    Host LAN on c6
+        SoftAP mode
+    Host webserver on c6
+        192.168.4.1
+    Send commands to p4
+        esp-hosted SDIO
+            custom data mode
+
+apogee simulation using 16 bit floats and vector extensions

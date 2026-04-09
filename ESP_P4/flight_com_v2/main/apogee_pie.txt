@@ -1,0 +1,105 @@
+#
+#vel -> q0
+#v1 -> q1
+#v2 -> q2
+#v3 -> q3
+#height -> q4
+#h1, h2, h3 -> q5
+#ay -> q6 overwritable
+#calcAirRes -> q7 overwritable
+#
+#input v[4] = a0 pointer to float
+#input h[4] = a1 pointer to float
+#output h[4] = a2 pointer to float
+#output timesteps[4] = a3 pointer to int
+#input coefftable[n] = a4 pointer to float
+#input coefftableoffsets[4] = a5 pointer to int 
+#input coefflength = a6 this is the length of each sub-table per airbrake angle
+#rocket cross sectional area = fa0 float
+#rocket mass = fa1 float
+#
+#apply coefficients via loading one by one and applying bitmask
+#for loop to build 2 coefficient vectors cvecL < true < cvecH
+#simd to interpolate
+#
+#float calcDen(float height, float temp)
+#{//calculates air density at given height and temperature
+#	float pressure = SEALEVEL * pow(1.0 - 2.2557 * 0.00001 * height, 5.25588);
+#    SEALEVEL * (((x - 15000) / 15000) ^ 2 + x / 57500)
+#	return pressure * AIRMOL / (UNIGAS * temp);	
+#}
+#
+#float calcAirRes(float denTot, float vel)
+#{//calculates current air resistance
+#	int i = 0;
+#	while(COEFFTABLE[0][i] < vel)
+#	{
+#		++i;
+#	}
+#	if(i == 0)
+#		return -1 * denTot * COEFFTABLE[1][i] * AREA * vel * vel / 2;
+#	
+#	float ratio = (COEFFTABLE[0][i] - vel) / (COEFFTABLE[0][i] - COEFFTABLE[0][i - 1]);
+#	return -1 * denTot * (COEFFTABLE[1][i] * (1 - ratio) + COEFFTABLE[1][i-1] * ratio) * AREA * vel * vel / 2;
+#}
+#
+#float lookupCoeff(float vel)
+#{
+#	int i = 0;
+#	while(COEFFTABLE[0][i] < vel)
+#	{
+#		++i;
+#	}
+#	if(i == 0)
+#		return COEFFTABLE[1][i];
+#	
+#	float ratio = (COEFFTABLE[0][i] - vel) / (COEFFTABLE[0][i] - COEFFTABLE[0][i - 1]);
+#	return COEFFTABLE[1][i] * (1 - ratio) + COEFFTABLE[1][i-1] * ratio;
+#}
+#
+#float calcGravAlt(float height)
+#{//gives value for gravity at the current altitude
+#	return LOCGRAV * (EARTHRAD / (EARTHRAD + (height - STARTINGALT)) * (EARTHRAD / (EARTHRAD + (height - STARTINGALT))));
+#}
+#
+#
+#float simulateApogeeRungeKutta(float startHeight, float vel, float startTemp, int* steps)
+#{//calculates apogee using the Runge-Kutta method of integration
+#	*steps = 0;
+#	float height = startHeight, temp = startTemp, density = calcDen(height, temp), ax, az, ay, airRes;
+#	float vel;
+#	float v1, v2, v3;
+#	float h1, h2, h3;
+#	
+#	while(vy > 0)
+#	{
+#		//v0 given, h0 given
+#		temp = startTemp - (height - startHeight) * LAPSERATE;
+#		//calculate h1 = h0 + v0 * stepsize/2
+#		h1 = height + vel * TIMESTEP / 2;
+#		//calculate a1 = a(v0, h1)
+#		airRes = calcAirRes(calcDen(h1, temp), vel);
+#		ay = airRes / MASS + calcGravAlt(h1); 
+#		//v1 = v0 + a1 * stepsize / 2
+#		v1 = vel + ay * TIMESTEP / 2;
+#		//calculate h2 = h0 + v1 * stepsize / 2
+#		h2 = height + v1y * TIMESTEP / 2;
+#		//calculate a2 = a(v1, h2)
+#		airRes = calcAirRes(calcDen(h2, temp), v1);
+#		ay = airRes / MASS + calcGravAlt(h2); 
+#		//v2 = v0 + a2 * stepsize / 2
+#		v2 = vel + ay * TIMESTEP / 2;
+#		//calculate h3 = h0 + v2 * stepsize
+#		h3 = height + v2 * TIMESTEP;
+#		//calculate a3 = a(v2, h3)
+#		airRes = calcAirRes(calcDen(h3, temp), v2);
+#		ay = airRes / MASS + calcGravAlt(h3); 
+#		//v3 = v0 + a3 * stepsize;
+#		v3 = vel + ay * TIMESTEP;
+#		//h(t+1) = h0 +stepsize/6 (v0 + 2v1+ 2v2 + v3)
+#		height = height + (vel + 2 * v1 + 2 * v2 + v3) * TIMESTEP / 6;
+#		vel = v3;
+#		++(*steps);
+#	}
+#	return height;
+#}
