@@ -32,7 +32,8 @@ float CURRANGLE; //current airbrake angle
 
 float calcDen(float height, float temp)
 {//calculates air density at given height and temperature
-	float pressure = SEALEVEL * pow(1.0 - 2.2557 * 0.00001 * height, 5.25588);
+	//float pressure = SEALEVEL * powf(1.0 - 2.2557 * 0.00001 * height, 5.25588);
+	float pressure = SEALEVEL * (((height - 15000) / 15000) * ((height - 15000) / 15000) + height / 57500);
 	return pressure * AIRMOL / (UNIGAS * temp);	
 }
 
@@ -73,10 +74,12 @@ float simulateApogeeRungeKutta(float startHeight, float vx, float vz, float vy, 
 {//calculates apogee using the Runge-Kutta method of integration
 	*steps = 0;
 	float height = startHeight, temp = startTemp, ax, az, ay, airRes;
-	float vel = pow(vx * vx + vx * vx + vy * vy, 0.5);
-	float absThetaX = asin(vx/vel);
-	float absThetaZ = asin(vz/vel);
-	float theta = asin(pow(vx * vx + vz * vz, 0.5)/vel); //gets magnitude of total angle displacement from vertical
+	//float vel = powf(vx * vx + vx * vx + vy * vy, 0.5);
+	float vel = sqrtf(vx*vx + vy*vy + vz*vz);
+	float absThetaX = asinf(vx/vel);
+	float absThetaZ = asinf(vz/vel);
+	//float theta = asinf(powf(vx * vx + vz * vz, 0.5)/vel); //gets magnitude of total angle displacement from vertical
+	float theta = asinf(sqrtf(vx * vx + vz * vz)/vel);
 	float v1x, v2x, v3x;
 	float v1z, v2z, v3z;
 	float v1y, v2y, v3y;
@@ -91,47 +94,47 @@ float simulateApogeeRungeKutta(float startHeight, float vx, float vz, float vy, 
 		h1 = height + vy * TIMESTEP / 2;
 		//calculate a1 = a(v0, h1)
 		airRes = calcAirRes(calcDen(h1, temp), vel);
-		ax = airRes * sin(absThetaX) / MASS;
-		az = airRes * sin(absThetaZ) / MASS;
-		ay = airRes * cos(theta) / MASS + calcGravAlt(h1); 
+		ax = airRes * sinf(absThetaX) / MASS;
+		az = airRes * sinf(absThetaZ) / MASS;
+		ay = airRes * cosf(theta) / MASS + calcGravAlt(h1); 
 		//v1 = v0 + a1 * stepsize / 2
 		v1x = vx + ax * TIMESTEP / 2;
 		v1z = vz + az * TIMESTEP / 2;
 		v1y = vy + ay * TIMESTEP / 2;
-		v1 =  pow(v1x * v1x + v1z * v1z + v1y * v1y, 0.5);
-		absThetaX = asin(v1x/v1);
-		absThetaZ = asin(v1z/v1);
-		theta = asin(pow(v1x * v1x + v1z * v1z, 0.5)/v1);
+		v1 =  sqrtf(v1x * v1x + v1z * v1z + v1y * v1y);
+		absThetaX = asinf(v1x/v1);
+		absThetaZ = asinf(v1z/v1);
+		theta = asinf(sqrtf(v1x * v1x + v1z * v1z)/v1);
 		//calculate h2 = h0 + v1 * stepsize / 2
 		h2 = height + v1y * TIMESTEP / 2;
 		//calculate a2 = a(v1, h2)
 		airRes = calcAirRes(calcDen(h2, temp), v1);
-		ax = airRes * sin(absThetaX) / MASS;
-		az = airRes * sin(absThetaZ) / MASS;
-		ay = airRes * cos(theta) / MASS + calcGravAlt(h2); 
+		ax = airRes * sinf(absThetaX) / MASS;
+		az = airRes * sinf(absThetaZ) / MASS;
+		ay = airRes * cosf(theta) / MASS + calcGravAlt(h2); 
 		//v2 = v0 + a2 * stepsize / 2
 		v2x = vx + ax * TIMESTEP / 2;
 		v2z = vz + az * TIMESTEP / 2;
 		v2y = vy + ay * TIMESTEP / 2;
-		v2 =  pow(v2x * v2x + v2z * v2z + v2y * v2y, 0.5);
-		absThetaX = asin(v2x/v2);
-		absThetaZ = asin(v2z/v2);
-		theta = asin(pow(v2x * v2x + v2z * v2z, 0.5)/v2);
+		v2 =  sqrtf(v2x * v2x + v2z * v2z + v2y * v2y);
+		absThetaX = asinf(v2x/v2);
+		absThetaZ = asinf(v2z/v2);
+		theta = asinf(sqrtf(v2x * v2x + v2z * v2z)/v2);
 		//calculate h3 = h0 + v2 * stepsize
 		h3 = height + v2y * TIMESTEP;
 		//calculate a3 = a(v2, h3)
 		airRes = calcAirRes(calcDen(h3, temp), v2);
-		ax = airRes * sin(absThetaX) / MASS;
-		az = airRes * sin(absThetaZ) / MASS;
-		ay = airRes * cos(theta) / MASS + calcGravAlt(h2); 
+		ax = airRes * sinf(absThetaX) / MASS;
+		az = airRes * sinf(absThetaZ) / MASS;
+		ay = airRes * cosf(theta) / MASS + calcGravAlt(h2); 
 		//v3 = v0 + a3 * stepsize
 		v3x = vx + ax * TIMESTEP;
 		v3z = vz + az * TIMESTEP;
 		v3y = vy + ay * TIMESTEP;
-		v3 =  pow(v3x * v3x + v3z * v3z + v3y * v3y, 0.5);
-		absThetaX = asin(v3x/v3);
-		absThetaZ = asin(v3z/v3);
-		theta = asin(pow(v3x * v3x + v3z * v3z, 0.5)/v3);
+		v3 =  sqrtf(v3x * v3x + v3z * v3z + v3y * v3y);
+		absThetaX = asinf(v3x/v3);
+		absThetaZ = asinf(v3z/v3);
+		theta = asinf(sqrtf(v3x * v3x + v3z * v3z)/v3);
 		//h(t+1) = h0 +stepsize/6 (v0 + 2v1+ 2v2 + v3)
 		height = height + (vy + 2 * v1y + 2 * v2y + v3y) * TIMESTEP / 6;
 		vx = v3x;
