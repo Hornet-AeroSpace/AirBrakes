@@ -5,24 +5,24 @@
 #include <stdbool.h>
 #include "apogee.h"
 
-#define DRYAIRCONSTANT 287.058 //gas constant for dry air
-#define AIRMOL 0.0289652 //molar mass of dry air
-#define UNIGAS 8.31447 //uinversal gas constant
-#define LAPSERATE 0.0065 //expected drop in temperature (K) per meter
+#define DRYAIRCONSTANT 287.052874f //gas constant for dry air
+#define AIRMOL 0.0289652f //molar mass of dry air
+#define UNIGAS 8.31446261815324f //uinversal gas constant
+#define LAPSERATE 0.0065f //expected drop in temperature (K) per meter
 #define SEALEVEL 101325 //air pressure at sea level
-#define GRAV -9.80665 //standard acceleration due to gravity in m/s
+#define GRAV -9.80665f //standard acceleration due to gravity in m/s
 #define EARTHRAD 6371008 //radius of earth in meters
-#define PI 3.141593 //pi
-#define AREA 0.005027//cross sectional area of rocket im ms2, both these may be combined with CFD
-#define LOCGRAV -9.797 //accelleration due to gravity at our launch point
+#define PI 3.141593f //pi
+#define AREA 0.005027f//cross sectional area of rocket im ms2, both these may be combined with CFD
+#define LOCGRAV -9.797f //accelleration due to gravity at our launch point
 #define STARTINGALT 1025 //starting altitude
 //#define MASS 1.16151 //rocket mass when motor its out of fuel in kg
-#define MASS 1.452
-#define ERROR 0.001 //accepted difference between predicted apogee and desired apogee when calculating needed CDA
+#define MASS 1.452f
+#define ERROR 0.001f //accepted difference between predicted apogee and desired apogee when calculating needed CDA
 
-#define TIMESTEP 0.16 //timesteps of simulation in seconds
+#define TIMESTEP 0.16f //timesteps of simulation in seconds
 
-#define GTOM 9.80665
+#define GTOM 9.80665f
 
 const float COEFFTABLE[2][8] = {
 {0,    81,   115,  143,  165,  186,  207,  220},
@@ -74,11 +74,9 @@ float simulateApogeeRungeKutta(float startHeight, float vx, float vz, float vy, 
 {//calculates apogee using the Runge-Kutta method of integration
 	*steps = 0;
 	float height = startHeight, temp = startTemp, ax, az, ay, airRes;
-	//float vel = powf(vx * vx + vx * vx + vy * vy, 0.5);
 	float vel = sqrtf(vx*vx + vy*vy + vz*vz);
 	float absThetaX = asinf(vx/vel);
 	float absThetaZ = asinf(vz/vel);
-	//float theta = asinf(powf(vx * vx + vz * vz, 0.5)/vel); //gets magnitude of total angle displacement from vertical
 	float theta = asinf(sqrtf(vx * vx + vz * vz)/vel);
 	float v1x, v2x, v3x;
 	float v1z, v2z, v3z;
@@ -141,16 +139,7 @@ float simulateApogeeRungeKutta(float startHeight, float vx, float vz, float vy, 
 		vz = v3z;
 		vy = v3y;
 		vel = v3;
-		/*
-		if(steps % (int)roundf(1/TIMESTEP) == 0)
-		{
-			//printf("\t\t\t\tabsThetaX %.2f absThetaZ %.2f theta %.2f\n", absThetaX, absThetaZ, theta);
-			//printf("%d.\t after calc accel:\t vX %.2f vZ %.2f vY %.2f V %.2f aX %.2f aZ %.2f aY %.2f H %f T %.2f \n", steps, vx, vz, vy, vel, ax, az, ay, height, temp);
-		}
-		*/
 		++(*steps);
 	}
-	//printf("%d.\t after calc accel:\t vX %.2f vZ %.2f vY %.2f V %.2f aX %.2f aZ %.2f aY %.2f H %f T %.2f \n", steps, vx, vz, vy, vel, ax, az, ay, height, temp);
-	//printf("%.2f seconds to apogee\n", steps * TIMESTEP);
 	return height;
 }

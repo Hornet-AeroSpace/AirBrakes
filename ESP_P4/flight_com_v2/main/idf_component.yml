@@ -15,5 +15,5 @@ dependencies:
   #   # All dependencies of `main` are public by default.
   #   public: true
   cybergear-robotics/icm20948: '*'
-  espressif/esp_wifi_remote: '*'
-  espressif/esp_hosted: '*'
+  espressif/esp_wifi_remote: "==1.4"
+  espressif/esp_hosted: "==2.11.0"

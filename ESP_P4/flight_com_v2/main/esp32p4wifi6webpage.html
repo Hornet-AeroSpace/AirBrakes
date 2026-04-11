@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+        <html>
+        <head>
+            <title>ESP32-P4 Control</title>
+            <style>
+                body { font-family: sans-serif; text-align: center; padding-top: 20px; }
+                input { padding: 10px; margin: 10px; border-radius: 5px; border: 1px solid #ccc; }
+                button { padding: 10px 20px; background-color: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; }
+                button:hover { background-color: #0056b3; }
+                .button-stack {
+    				display: flex;
+    				flex-direction: column;
+    				align-items: center;
+    				gap: 10px; 
+ 				}
+                .btn {
+ 					width: 150px;
+    				padding: 10px 10px;
+                    color: white;
+    				font-size: 16px;
+    				cursor: pointer;
+    				border: 1px solid #ccc;
+    				background-color: #007bff;
+  				}
+            </style>
+        </head>
+        <body>
+            <h1>Flight Computer Control</h1>
+            
+            <div class="button-stack">
+            <h2>Rocket Mass (Kg)
+            <input type="text" id="user_mass" placeholder="Type data here...">
+            <h2>Rocket Frontal Area (M^2)
+            <input type="text" id="user_area" placeholder="Type data here...">
+            <h2>Launchpad Altitude (M)
+            <input type="text" id="user_alt" placeholder="Type data here...">
+            <h2>Launchpad Air Pressure (Pa)
+            <input type="text" id="user_press" placeholder="Type data here...">
+            <h2>Local Gravity (M/s^2)
+            <input type="text" id="user_grav" placeholder="Type data here...">
+            <h2>Simulation Timestep
+            <input type="text" id="user_sim_step" placeholder="Type data here...">
+        <h2>  </h2>
+    		<button class="btn" onclick="sendToServer()">Update Variables</button>
+  			</div>
+            
+            <script>
+                function sendToServer() {
+                  var user_mass = document.getElementById("user_mass").value;
+                  var user_area = document.getElementById("user_area").value;
+                  var user_alt = document.getElementById("user_alt").value;
+                  var user_press = document.getElementById("user_press").value;
+                  var user_grav = document.getElementById("user_grav").value;
+                  var user_sim_step = document.getElementById("user_sim_step").value;
+                  fetch('/update', {
+                    method: 'POST',
+                    body: user_mass + "\0" + user_area + "\0" + user_alt + "\0" + user_press + "\0" + user_grav + "\0" + user_sim_step
+                  })
+                };
+                
+                function getFromServer() {
+                	
+                }
+            </script>
+        </body>
+        </html>
