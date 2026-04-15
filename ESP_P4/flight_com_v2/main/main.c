@@ -44,13 +44,14 @@
 #define SDMMC_WIDTH 4
 
 typedef enum {
-    CALIBRATE, //calibration of sensors, mag, acc, gyro
-    LAUNCHPAD, //resting on launchpad
-    BOOST, //under motor power
-    BURNOUT, //post burnout, but before braking
-    BRAKE, //active airbrake control
-    APOGEE, //apogee has been reached, airbrakes retracting, waiting for parachute
-    DESCENT, //parachute deployed, controlled descent
+    WEBSERVER = 0,
+    CALIBRATE = 1, //calibration of sensors, mag, acc, gyro
+    LAUNCHPAD = 2, //resting on launchpad
+    BOOST = 3, //under motor power
+    BURNOUT = 4, //post burnout, but before braking
+    BRAKE = 5, //active airbrake control
+    APOGEE = 6, //apogee has been reached, airbrakes retracting, waiting for parachute
+    DESCENT = 7, //parachute deployed, controlled descent
 } finite_state;
 
 //website updatable global vars
@@ -60,19 +61,47 @@ float pad_alt = 0; //launchpad altitude in meters
 float pad_press = 101325; //launchpad air pressure in pascals
 float grav = 9.80665; //local gravitational acceleration in m/s^2
 float sim_timestep = 0.16; //altitude simulation timestep in seconds
-finite_state rocket_state = LAUNCHPAD; //by default, assume the rocket is resting on the launch pad
+finite_state rocket_state = WEBSERVER; //by default, start up the webserver to configure rocket
 
+//lets the program see the html file and puts it in the .text section of the assembly instead of file structure
 extern const uint8_t webpage_html_start[] asm("_binary_esp32p4wifi6webpage_html_start");
 extern const uint8_t webpage_html_end[]   asm("_binary_esp32p4wifi6webpage_html_end");
 
-esp_err_t get_handler(httpd_req_t *req) {
+//
+
+esp_err_t start_ap()
+{
+    ESP_ERROR_CHECK(nvs_flash_init());
+    ESP_ERROR_CHECK(esp_netif_init());
+    ESP_ERROR_CHECK(esp_event_loop_create_default());
+    esp_netif_t *ap_netif __attribute__((unused)) = esp_netif_create_default_wifi_ap();
+    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
+    esp_wifi_init(&cfg);
+    esp_wifi_set_mode(WIFI_MODE_AP);
+    static wifi_config_t ap_config = {
+        .ap = {
+            .ssid = "ESP32-P4WIFI6",
+            .password = "aerospace",
+            .channel = 1,
+            .authmode = WIFI_AUTH_WPA2_PSK,
+            .max_connection = 4,
+        },
+    };
+    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
+    ESP_ERROR_CHECK(esp_wifi_start());
+    return ESP_OK;
+}
+
+esp_err_t get_handler(httpd_req_t *req)
+{
     const size_t webpage_html_size = (webpage_html_end - webpage_html_start);
     httpd_resp_set_type(req, "text/html");
     return httpd_resp_send(req, (const char *)webpage_html_start, webpage_html_size);
     return ESP_OK;
 }
 
-esp_err_t post_handler(httpd_req_t *req) {
+esp_err_t post_handler(httpd_req_t *req)
+{
     char content[256];
     size_t recv_size = req->content_len;
 
@@ -85,7 +114,7 @@ esp_err_t post_handler(httpd_req_t *req) {
         return ESP_FAIL;
     content[ret] = '\0';
 
-    float data[6];
+    float data[7];
     int index = 0;
     for(int i = 0; i < sizeof(data) / sizeof(float); i++)
     {
@@ -101,12 +130,26 @@ esp_err_t post_handler(httpd_req_t *req) {
     pad_press = data[3];
     grav = data[4];
     sim_timestep = data[5];
-    
+    rocket_state = (finite_state)data[6];
 
     return ESP_OK;
 }
 
-httpd_handle_t start_webserver(httpd_uri_t* update_uri, httpd_uri_t* get_uri) {
+httpd_handle_t start_webserver()
+{
+    httpd_uri_t get_uri = {
+    .uri      = "/",
+    .method   = HTTP_GET,
+    .handler  = get_handler,
+    .user_ctx = NULL
+    };
+    httpd_uri_t update_uri = {
+    .uri       = "/update",
+    .method    = HTTP_POST,
+    .handler   = post_handler,
+    .user_ctx  = NULL
+    };
+
     httpd_handle_t server = NULL;
     httpd_config_t config = HTTPD_DEFAULT_CONFIG();
 
@@ -115,13 +158,12 @@ httpd_handle_t start_webserver(httpd_uri_t* update_uri, httpd_uri_t* get_uri) {
         // Register your existing GET handler (e.g., for the main page)
         // httpd_register_uri_handler(server, &index_get);
         // REGISTER THE NEW POST HANDLER HERE
-        httpd_register_uri_handler(server, get_uri);
-        httpd_register_uri_handler(server, update_uri);
+        httpd_register_uri_handler(server, &get_uri);
+        httpd_register_uri_handler(server, &update_uri);
         return server;
     }
     return NULL;
 }
-
 
 void app_main(void)
 {
@@ -155,41 +197,11 @@ void app_main(void)
     esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
     */
     printf("main start\n");
-    //ssid stuff
-    ESP_ERROR_CHECK(nvs_flash_init());
-    ESP_ERROR_CHECK(esp_netif_init());
-    ESP_ERROR_CHECK(esp_event_loop_create_default());
-    esp_netif_t *ap_netif __attribute__((unused)) = esp_netif_create_default_wifi_ap();
-    wifi_init_config_t cfg = WIFI_INIT_CONFIG_DEFAULT();
-    esp_wifi_init(&cfg);
-    esp_wifi_set_mode(WIFI_MODE_AP);
-    static wifi_config_t ap_config = {
-        .ap = {
-            .ssid = "ESP32-P4WIFI6",
-            .password = "aerospace",
-            .channel = 1,
-            .authmode = WIFI_AUTH_WPA2_PSK,
-            .max_connection = 4,
-        },
-    };
-    ESP_ERROR_CHECK(esp_wifi_set_config(WIFI_IF_AP, &ap_config));
-    ESP_ERROR_CHECK(esp_wifi_start());
-    //http stuff
-    httpd_uri_t get_uri = {
-    .uri      = "/",
-    .method   = HTTP_GET,
-    .handler  = get_handler,
-    .user_ctx = NULL
-    };
-    httpd_uri_t update_uri = {
-    .uri       = "/update",
-    .method    = HTTP_POST,
-    .handler   = post_handler,
-    .user_ctx  = NULL
-    };
-    start_webserver(&update_uri, &get_uri);
+    //start access point
+    start_ap();
+    //start http server
+    start_webserver();
 
-    //
     float startHeight = 400;
     float vx = 0;
     float vy = 150;

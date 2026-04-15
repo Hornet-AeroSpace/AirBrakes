@@ -28,7 +28,7 @@
             <h1>Flight Computer Control</h1>
             
             <div class="button-stack">
-            <h2>Rocket Mass (Kg)
+            <h2>Rocket Mass (Kg) - With empty rocket motor
             <input type="text" id="user_mass" placeholder="Type data here...">
             <h2>Rocket Frontal Area (M^2)
             <input type="text" id="user_area" placeholder="Type data here...">
@@ -41,11 +41,13 @@
             <h2>Simulation Timestep
             <input type="text" id="user_sim_step" placeholder="Type data here...">
         <h2>  </h2>
-    		<button class="btn" onclick="sendToServer()">Update Variables</button>
+    		<button class="btn" onclick="sendToServer(0)">Update Variables</button>
+            <button blass="btn" onclick="sendToServer(1)">Initiate Sensor Calibration</button>
+            <button blass="btn" onclick="sendToServer(2)">Shutdown Server and Move to Launch Mode</button>
   			</div>
             
             <script>
-                function sendToServer() {
+                function sendToServer(finite_state) {
                   var user_mass = document.getElementById("user_mass").value;
                   var user_area = document.getElementById("user_area").value;
                   var user_alt = document.getElementById("user_alt").value;
@@ -54,7 +56,7 @@
                   var user_sim_step = document.getElementById("user_sim_step").value;
                   fetch('/update', {
                     method: 'POST',
-                    body: user_mass + "\0" + user_area + "\0" + user_alt + "\0" + user_press + "\0" + user_grav + "\0" + user_sim_step
+                    body: user_mass + "\0" + user_area + "\0" + user_alt + "\0" + user_press + "\0" + user_grav + "\0" + user_sim_step + "\0" + finite_state 
                   })
                 };
                 

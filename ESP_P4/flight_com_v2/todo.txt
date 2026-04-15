@@ -1,20 +1,29 @@
 BMP 390 SPI library
+    arduino library: https://github.com/adafruit/Adafruit_BMP3XX i2c and spi
+    includes bmp3.h and bmp3.c these are the bosch files, i'm gonna base it off those
+    390 exists, but only i2c, need spi
+    https://www.bosch-sensortec.com/media/boschsensortec/downloads/datasheets/bst-bmp390-ds002.pdf
 ADXL 375 SPI library
-I-Syst ICM 45686 + AKM AK09940A library
-GPS Module SPI library
+    arduino library: https://docs.arduino.cc/libraries/adafruit-adxl375/ i2c and spi
+    345 exists, but only i2c, need spi
+    https://www.analog.com/media/en/technical-documentation/data-sheets/ADXL375.PDF
+    https://cdn-learn.adafruit.com/downloads/pdf/adafruit-adxl375.pdf
+ICM 45686 SPI library
+    arduino library: https://docs.arduino.cc/libraries/icm45686/ i2c and spi
+    ESP-IDF: icm 42670, 42607, 42688, 20948 exist, some with spi
+    datasheet for module: https://drive.google.com/file/d/1Ulq145dVcfSXqNnAelyxSEbmPAwqCgqv/view
+    they linked this for vr, maybe look into it: https://github.com/SlimeVR/SlimeVR-Tracker-nRF
+    https://www.mouser.com/catalog/specsheets/TDK_DS_000577_ICM_45686.pdf
+AKM AK09940A I2C library
+    doesn't exist arduino or esp-idf
+    we won't be slaving off icm, we will be using seperate i2c pins on the module
+    https://www.akm.com/content/dam/documents/products/tri-axis-magnetic-sensor/ak09940a/ak09940a-en-datasheet-myakm.pdf?mkt_tok=NTY4LUFQSi0yNTUAAAGNWnl-Ex4mK0Ig674SPmT62WCoLyFdEwQ_ZW9S5rpuga9JtpqhHDgHTEBLpvmyB3lvHsh6h7DrM4V-lReTWmCtMwW8ZKUUCrcXUQUD
+ATGM336H UART library
+    others exist, i found a parsing library, might work.
+    UART only, NMEA-0183.
+    https://components.espressif.com/components/cinderblocks/esp_tinygpsplusplus/versions/1.1.1/readme
 
-Wireless control of flight computer through C6
-    access c6 through the UART header
-        3.3V USB-to-UART adapter to the C6_TX, C6_RX, and GND pads
-        pull C6_IO9 to ground to enter download mode
-    Back up stock firmware
-        esptool.py --chip esp32c6 --port <COM PORT> --baud 460800 read_flash 0 ALL factory_backup.bin
-    Host LAN on c6
-        SoftAP mode
-    Host webserver on c6
-        192.168.4.1
-    Send commands to p4
-        esp-hosted SDIO
-            custom data mode
+Logic to integrate 45686 and 375 together, maybe 45686 when low g, 375 when high g, combine in a middle range: 28-36g or something
 
-apogee simulation using 16 bit floats and vector extensions
+Optimize code, 6.4khz icm, 3.2khz adxl, 2.5khz akm, 200hz bmp, 10hz atgm
+    ADXL 5mhz, icm 24mhz, bmp 10mhz switch spi frequency between reads. when developing, stick to 5mhz. with perf board, might only get 5mzh or lower. check with oscilloscope
