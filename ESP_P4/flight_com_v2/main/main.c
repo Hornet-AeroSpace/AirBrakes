@@ -43,6 +43,11 @@
 //sdmmc
 #define SDMMC_WIDTH 4
 
+#define SD_MISO 39
+#define SD_MOSI 44
+#define SD_CLK 43
+#define SD_CS 42
+
 typedef enum {
     WEBSERVER = 0,
     CALIBRATE = 1, //calibration of sensors, mag, acc, gyro
@@ -165,42 +170,55 @@ httpd_handle_t start_webserver()
     return NULL;
 }
 
-void app_main(void)
+esp_err_t start_sd()
 {
-    /* //sdmmc stuff, need 10k pull up resistors to make work
     sd_pwr_ctrl_ldo_config_t ldo_config = {
-        .ldo_chan_id = 4, // Check your schematic for the correct LDO channel ID
+        .ldo_chan_id = 4,
     };
     sd_pwr_ctrl_handle_t pwr_ctrl_handle = NULL;
     sd_pwr_ctrl_new_on_chip_ldo(&ldo_config, &pwr_ctrl_handle);
-    sdmmc_host_deinit();
-    sdmmc_host_t host = SDMMC_HOST_DEFAULT();
-    host.pwr_ctrl_handle = pwr_ctrl_handle;
-    host.slot = SDMMC_HOST_SLOT_0;
-    host.flags &= ~SDMMC_HOST_FLAG_DDR;
-    host.max_freq_khz = 400;
-    sdmmc_slot_config_t slot_config = SDMMC_SLOT_CONFIG_DEFAULT();
-    slot_config.width = 4;
-    slot_config.clk = 43;
-    slot_config.cmd = 44;
-    slot_config.d0 = 39;
-    slot_config.d1 = 40;
-    slot_config.d2 = 41;
-    slot_config.d3 = 42;
-    slot_config.flags |= SDMMC_SLOT_FLAG_INTERNAL_PULLUP;
+    sd_pwr_ctrl_set_io_voltage(pwr_ctrl_handle, 3300);
+    
+    spi_bus_config_t bus_cfg = {
+    .mosi_io_num = SD_MOSI,
+    .miso_io_num = SD_MISO,
+    .sclk_io_num = SD_CLK,
+    .quadwp_io_num = -1,
+    .quadhd_io_num = -1,
+    .max_transfer_sz = 4000,
+    };
+
+    sdmmc_host_t host = SDSPI_HOST_DEFAULT();
+    host.slot = SPI2_HOST;
+    host.max_freq_khz = SDMMC_FREQ_DEFAULT;
+
+    sdspi_device_config_t slot_config = SDSPI_DEVICE_CONFIG_DEFAULT();
+    slot_config.gpio_cs = SD_CS;
+    slot_config.host_id = host.slot;
+
+    spi_bus_initialize(SPI2_HOST, &bus_cfg, SPI_DMA_CH_AUTO);
+
     esp_vfs_fat_sdmmc_mount_config_t mount_config = {
         .format_if_mount_failed = false,
-        .max_files = 1,
-        .allocation_unit_size = 4 * 1024
+        .max_files = 5,
+        .allocation_unit_size = 16 * 1024
     };
+
     sdmmc_card_t *card;
-    esp_vfs_fat_sdmmc_mount("/sdcard", &host, &slot_config, &mount_config, &card);
-    */
+    esp_vfs_fat_sdspi_mount("/sdcard", &host, &slot_config, &mount_config, &card);
+
+    return ESP_OK;
+}
+
+void app_main(void)
+{
     printf("main start\n");
     //start access point
     start_ap();
     //start http server
     start_webserver();
+    //start sd card through onboard slot
+    start_sd();
 
     float startHeight = 400;
     float vx = 0;
@@ -208,6 +226,11 @@ void app_main(void)
     float vz = 0;
     float startTemp = 273;
     int steps = 0;
+
+    FILE* fp = fopen("/sdcard/p4.txt", "w");
+    fprintf(fp, "Writing to SD card via SPI mode.\n");
+    fclose(fp);
+
 
     while(true)
     {

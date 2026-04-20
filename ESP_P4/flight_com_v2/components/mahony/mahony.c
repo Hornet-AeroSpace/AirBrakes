@@ -2,7 +2,7 @@
 #include <math.h>
 #include "mahony.h"
 
-#define GTOM 9.80665
+#define GTOM 9.80665f
 #define SERIAL_PORT Serial
 
 void quat_integrate(float* quat, float wx, float wy, float wz, float deltaT)
