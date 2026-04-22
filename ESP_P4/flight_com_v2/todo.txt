@@ -8,6 +8,8 @@ ADXL 375 SPI library
     345 exists, but only i2c, need spi
     https://www.analog.com/media/en/technical-documentation/data-sheets/ADXL375.PDF
     https://cdn-learn.adafruit.com/downloads/pdf/adafruit-adxl375.pdf
+
+    look into adxl self test functionality
 ICM 45686 SPI library
     arduino library: https://docs.arduino.cc/libraries/icm45686/ i2c and spi
     ESP-IDF: icm 42670, 42607, 42688, 20948 exist, some with spi

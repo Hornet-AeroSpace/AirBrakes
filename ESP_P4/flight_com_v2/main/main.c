@@ -13,36 +13,31 @@
 #include "driver/spi_master.h"
 #include "esp_clk_tree.h"
 #include "esp_vfs_fat.h"
-#include "driver/sdmmc_host.h"
 #include "esp_wifi.h"
 #include "esp_http_server.h"
 #include "esp_event.h"
 #include "nvs_flash.h" 
+#include "esp_task_wdt.h"
 
 #include "icm20948.h"
 #include "icm20948_spi.h"
-#include "sdmmc_cmd.h"
 
 #include "matrix_functions.h"
 #include "mahony.h"
 #include "controlled_LKF.h"
 #include "apogee.h"
+#include "adxl375.h"
 
 #include "sd_pwr_ctrl.h"
 #include "sd_pwr_ctrl_by_on_chip_ldo.h"
 
-//spi2
-#define HSPI_MOSI 0
-#define HSPI_MISO 0
-#define HSPI_CLK 0
 //spi3
-#define VSPI_MOSI 0
-
-#define VSPI_MISO 0
-#define VSPI_CLK 0
-//sdmmc
-#define SDMMC_WIDTH 4
-
+#define HSPI_MOSI 7
+#define HSPI_MISO 48
+#define HSPI_CLK 8
+#define ADXL_CS 47
+#define ADXL_INT 46
+//spi2
 #define SD_MISO 39
 #define SD_MOSI 44
 #define SD_CLK 43
@@ -218,7 +213,30 @@ void app_main(void)
     //start http server
     start_webserver();
     //start sd card through onboard slot
-    start_sd();
+    //start_sd();
+
+    gpio_config_t io_conf = {
+        .pin_bit_mask = (1ULL << ADXL_INT),
+        .mode = GPIO_MODE_INPUT,             // MUST be input
+        .pull_up_en = GPIO_PULLUP_DISABLE,
+        .pull_down_en = GPIO_PULLDOWN_ENABLE, // Keep it low until sensor pulls it high
+        .intr_type = GPIO_INTR_POSEDGE       // Trigger on Rising Edge
+    };
+    gpio_config(&io_conf);
+
+    spi_bus_config_t hspi_cfg = {
+    .mosi_io_num = HSPI_MOSI,
+    .miso_io_num = HSPI_MISO,
+    .sclk_io_num = HSPI_CLK,
+    .quadwp_io_num = -1,
+    .quadhd_io_num = -1,
+    .max_transfer_sz = 4000,
+    };
+
+    spi_bus_initialize(SPI3_HOST, &hspi_cfg, SPI_DMA_CH_AUTO);
+
+    spi_device_handle_t adxl375_handle;
+    adxl375_initialize_device(SPI3_HOST, &adxl375_handle, ADXL_CS);
 
     float startHeight = 400;
     float vx = 0;
@@ -227,21 +245,19 @@ void app_main(void)
     float startTemp = 273;
     int steps = 0;
 
-    FILE* fp = fopen("/sdcard/p4.txt", "w");
-    fprintf(fp, "Writing to SD card via SPI mode.\n");
-    fclose(fp);
+    //FILE* fp = fopen("/sdcard/p4.txt", "w");
+    //fprintf(fp, "Writing to SD card via SPI mode.\n");
+    //fclose(fp);
 
-
+    int16_t adxl_readings[3];
     while(true)
     {
-        int start = esp_timer_get_time();
-
-        float alt = simulateApogeeRungeKutta(startHeight, vx, vz, vy, startTemp, &steps);
-
-        int runtime = esp_timer_get_time() - start;
-
-        printf("%.4f meters, %.4f seconds, %.4f ms runtime\n", alt, (float)steps * 0.16, (float)runtime / 1000.0);
-        vTaskDelay(100);
-        printf("main loop\n");
+        while(gpio_get_level(ADXL_INT) == 0)
+        {
+            printf("n");
+        }
+        adxl375_read(&adxl375_handle, adxl_readings);
+        printf("y");
+        printf("%.2f,\t %.2f,\t %.2f\n", adxl_readings[0] * 200 / 32768.0f * grav, adxl_readings[1] * 200 / 32768.0f * grav, adxl_readings[2] * 200 / 32768.0f * grav);
     }
 }
